@@ -121,7 +121,7 @@ export function SpotifySetup({
                       Give it a name such as <strong>My Birthday Mix</strong> and a description
                       such as <strong>Find songs and create my private birthday playlist</strong>.
                       If a Website is requested, use{' '}
-                      <code className="break-all">{window.location.origin}</code>.
+                      <code className="break-all">https://bold-forge-c1c427dcac-westeurope.webapp.fabricapps.net</code>.
                     </li>
                     <li>Add this exact redirect address in that app&apos;s settings:
                       <code className="mt-200 block break-all rounded-xl bg-secondary p-300 text-foreground">

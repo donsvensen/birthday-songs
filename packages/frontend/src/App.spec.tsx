@@ -8,8 +8,9 @@
 import { fireEvent, render } from '@testing-library/react';
 import { afterEach, beforeEach, describe, it, expect, vi } from 'vitest';
 
-const { execute, searchSpotifyTracks, exchangeSpotifyCode } = vi.hoisted(() => ({
+const { execute, createSong, searchSpotifyTracks, exchangeSpotifyCode } = vi.hoisted(() => ({
   execute: vi.fn(),
+  createSong: vi.fn(),
   searchSpotifyTracks: vi.fn(),
   exchangeSpotifyCode: vi.fn(),
 }));
@@ -30,9 +31,15 @@ vi.mock('@/lib/rayfin-client', () => {
   };
   return {
     getRayfinClient: async () => ({
+      auth: {
+        getSession: () => ({
+          isAuthenticated: true,
+          user: { id: 'test-user' },
+        }),
+      },
       data: {
         BirthdayPlaylist: query,
-        PlaylistSong: query,
+        PlaylistSong: { ...query, create: createSong },
       },
     }),
   };
@@ -43,6 +50,7 @@ import App from '@/App';
 describe('App', () => {
   beforeEach(() => {
     execute.mockReset().mockResolvedValue([]);
+    createSong.mockReset();
     searchSpotifyTracks.mockReset();
     exchangeSpotifyCode.mockReset();
   });
@@ -96,6 +104,7 @@ describe('App', () => {
     expect(view.getByRole('link', { name: 'Open in Spotify' })).toHaveAttribute(
       'href', 'https://open.spotify.com/track/trackone',
     );
+    expect(view.getByRole('button', { name: 'Already added' })).toBeDisabled();
 
     fireEvent.click(view.getByRole('button', {
       name: 'Listen to Second song on Spotify',
@@ -111,6 +120,10 @@ describe('App', () => {
   });
 
   it('lets search results open the Spotify player when no preview is provided', async () => {
+    execute
+      .mockResolvedValueOnce([{ id: 'playlist', title: 'Birthday mix' }])
+      .mockResolvedValueOnce([]);
+    createSong.mockImplementation(async (song) => ({ id: 'saved-song', ...song }));
     sessionStorage.setItem('birthday-songs.spotify-oauth-state', JSON.stringify({
       state: 'test-state',
       codeVerifier: 'test-verifier',
@@ -141,5 +154,16 @@ describe('App', () => {
       'src', 'https://open.spotify.com/embed/track/mariahtrack',
     );
     expect(view.getByRole('region', { name: 'Spotify song player' })).toHaveFocus();
+    const player = view.getByTitle('Spotify player for Mariah song');
+    fireEvent.click(view.getByRole('button', { name: 'Add to playlist' }));
+    expect(await view.findByRole('button', { name: 'Already added' })).toBeDisabled();
+    expect(createSong).toHaveBeenCalledWith(expect.objectContaining({
+      playlist_id: 'playlist',
+      spotifyUri: 'spotify:track:mariahtrack',
+      title: 'Mariah song',
+      artist: 'Mariah Carey',
+      owner_id: 'test-user',
+    }));
+    expect(view.getByTitle('Spotify player for Mariah song')).toBe(player);
   });
 });

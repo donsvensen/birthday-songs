@@ -83,10 +83,7 @@ function App() {
   const [exportMessage, setExportMessage] = useState('');
   const [exportUrl, setExportUrl] = useState('');
   const [exporting, setExporting] = useState(false);
-  const [listeningTrack, setListeningTrack] = useState<{
-    id: string;
-    title: string;
-  } | null>(null);
+  const [listeningTrack, setListeningTrack] = useState<SpotifyTrack | null>(null);
   const playerPanel = useRef<HTMLElement>(null);
   const callbackHandled = useRef(false);
 
@@ -382,13 +379,13 @@ function App() {
     }
   }
 
-  function listenToTrack(uri: string, title: string) {
-    const match = /^spotify:track:([A-Za-z0-9]{1,128})$/u.exec(uri);
+  function listenToTrack(track: SpotifyTrack) {
+    const match = /^spotify:track:([A-Za-z0-9]{1,128})$/u.exec(track.uri);
     if (!match) {
       setPageError('This song has an invalid Spotify link and cannot be played.');
       return;
     }
-    setListeningTrack({ id: match[1], title });
+    setListeningTrack({ ...track, id: match[1] });
   }
 
   async function exportToSpotify() {
@@ -606,6 +603,32 @@ function App() {
                     allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"
                     allowFullScreen
                   />
+                  <button
+                    type="button"
+                    onClick={() => void addTrack(listeningTrack)}
+                    disabled={
+                      !playlist ||
+                      saving ||
+                      addedUris.has(listeningTrack.uri) ||
+                      songs.length >= 100
+                    }
+                    className="mt-300 inline-flex min-h-11 items-center justify-center gap-200 rounded-xl bg-primary px-400 py-200 text-200 font-semibold text-primary-foreground transition-colors hover:bg-primary/90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    {addedUris.has(listeningTrack.uri) ? (
+                      <CircleCheck className="icon-size-200" aria-hidden="true" />
+                    ) : (
+                      <Plus className="icon-size-200" aria-hidden="true" />
+                    )}
+                    {addedUris.has(listeningTrack.uri)
+                      ? 'Already added'
+                      : !playlist
+                        ? 'Create your playlist first'
+                        : saving
+                          ? 'Saving…'
+                          : songs.length >= 100
+                            ? 'Playlist is full'
+                            : 'Add to playlist'}
+                  </button>
                   <p className="mt-200 text-200 text-muted-foreground">
                     Press Play in the Spotify player. Playback and sign-in
                     requirements are controlled by Spotify.{' '}
@@ -713,7 +736,7 @@ function App() {
                             </div>
                             <button
                               type="button"
-                              onClick={() => listenToTrack(track.uri, track.title)}
+                              onClick={() => listenToTrack(track)}
                               className="flex size-10 shrink-0 items-center justify-center rounded-full border border-border text-primary transition-colors hover:bg-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring disabled:cursor-not-allowed disabled:opacity-45"
                               aria-label={`Listen to ${track.title} on Spotify`}
                               aria-pressed={listeningTrack?.id === track.id}
@@ -835,7 +858,14 @@ function App() {
                           </div>
                           <button
                             type="button"
-                            onClick={() => listenToTrack(song.spotifyUri, song.title)}
+                            onClick={() => listenToTrack({
+                              id: song.id,
+                              uri: song.spotifyUri,
+                              title: song.title,
+                              artist: song.artist,
+                              album: song.album,
+                              coverUrl: song.coverUrl || '',
+                            })}
                             aria-label={`Listen to ${song.title} on Spotify`}
                             aria-pressed={
                               `spotify:track:${listeningTrack?.id}` === song.spotifyUri

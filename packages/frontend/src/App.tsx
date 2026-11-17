@@ -7,6 +7,8 @@ import {
   LoaderCircle,
   Moon,
   Music2,
+  Pause,
+  Play,
   Plus,
   Search,
   Sparkles,
@@ -81,6 +83,9 @@ function App() {
   const [exportMessage, setExportMessage] = useState('');
   const [exportUrl, setExportUrl] = useState('');
   const [exporting, setExporting] = useState(false);
+  const [previewTrackId, setPreviewTrackId] = useState('');
+  const [previewMessage, setPreviewMessage] = useState('');
+  const previewAudio = useRef<HTMLAudioElement>(null);
   const callbackHandled = useRef(false);
 
   async function readPlaylist() {
@@ -371,6 +376,32 @@ function App() {
     }
   }
 
+  async function togglePreview(track: SpotifyTrack) {
+    const audio = previewAudio.current;
+    if (!audio || !track.previewUrl) return;
+
+    if (previewTrackId === track.id) {
+      audio.pause();
+      audio.currentTime = 0;
+      setPreviewTrackId('');
+      return;
+    }
+
+    audio.pause();
+    audio.src = track.previewUrl;
+    audio.currentTime = 0;
+    setPreviewMessage('');
+    setPreviewTrackId(track.id);
+    try {
+      await audio.play();
+    } catch {
+      setPreviewTrackId('');
+      setPreviewMessage(
+        'This preview could not be played. Try opening the song in Spotify.',
+      );
+    }
+  }
+
   async function exportToSpotify() {
     if (!playlist || songs.length === 0) return;
     if (!accessToken) {
@@ -615,70 +646,106 @@ function App() {
                     {searchMessage}
                   </p>
                 ) : searchResults.length ? (
-                  <ul className="divide-y divide-border">
-                    {searchResults.map((track) => {
-                      const alreadyAdded = addedUris.has(track.uri);
-                      return (
-                        <li
-                          key={track.id}
-                          className="flex items-center gap-300 py-300"
-                        >
-                          {track.coverUrl ? (
-                            <img
-                              src={track.coverUrl}
-                              alt=""
-                              className="size-12 shrink-0 rounded-lg object-cover"
-                              loading="lazy"
-                            />
-                          ) : (
-                            <span className="flex size-12 shrink-0 items-center justify-center rounded-lg bg-secondary text-secondary-foreground">
-                              <Music2
+                  <>
+                    <ul className="divide-y divide-border">
+                      {searchResults.map((track) => {
+                        const alreadyAdded = addedUris.has(track.uri);
+                        const isPreviewing = previewTrackId === track.id;
+                        return (
+                          <li
+                            key={track.id}
+                            className="flex items-center gap-300 py-300"
+                          >
+                            {track.coverUrl ? (
+                              <img
+                                src={track.coverUrl}
+                                alt=""
+                                className="size-12 shrink-0 rounded-lg object-cover"
+                                loading="lazy"
+                              />
+                            ) : (
+                              <span className="flex size-12 shrink-0 items-center justify-center rounded-lg bg-secondary text-secondary-foreground">
+                                <Music2
+                                  className="icon-size-200"
+                                  aria-hidden="true"
+                                />
+                              </span>
+                            )}
+                            <div className="min-w-0 flex-1">
+                              <p className="truncate text-300 font-semibold">
+                                {track.title}
+                              </p>
+                              <p className="truncate text-200 text-muted-foreground">
+                                {track.artist}
+                                {track.album ? ` · ${track.album}` : ''}
+                              </p>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => void togglePreview(track)}
+                              disabled={!track.previewUrl}
+                              className="flex size-10 shrink-0 items-center justify-center rounded-full border border-border text-primary transition-colors hover:bg-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring disabled:cursor-not-allowed disabled:opacity-45"
+                              aria-label={
+                                track.previewUrl
+                                  ? `${isPreviewing ? 'Stop' : 'Play'} preview of ${track.title}`
+                                  : `No preview available for ${track.title}`
+                              }
+                              title={
+                                track.previewUrl
+                                  ? `${isPreviewing ? 'Stop' : 'Play'} preview`
+                                  : 'No preview available'
+                              }
+                            >
+                              {isPreviewing ? (
+                                <Pause
+                                  className="icon-size-200"
+                                  aria-hidden="true"
+                                />
+                              ) : (
+                                <Play
+                                  className="icon-size-200"
+                                  aria-hidden="true"
+                                />
+                              )}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => void addTrack(track)}
+                              disabled={
+                                !playlist ||
+                                saving ||
+                                alreadyAdded ||
+                                songs.length >= 100
+                              }
+                              className="flex size-10 shrink-0 items-center justify-center rounded-full border border-border text-primary transition-colors hover:bg-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring disabled:cursor-not-allowed disabled:opacity-45"
+                              aria-label={
+                                alreadyAdded
+                                  ? `${track.title} is already in your playlist`
+                                  : `Add ${track.title} to your playlist`
+                              }
+                              title={
+                                !playlist
+                                  ? 'Create your playlist first'
+                                  : alreadyAdded
+                                    ? 'Already added'
+                                    : 'Add to playlist'
+                              }
+                            >
+                              <Plus
                                 className="icon-size-200"
                                 aria-hidden="true"
                               />
-                            </span>
-                          )}
-                          <div className="min-w-0 flex-1">
-                            <p className="truncate text-300 font-semibold">
-                              {track.title}
-                            </p>
-                            <p className="truncate text-200 text-muted-foreground">
-                              {track.artist}
-                              {track.album ? ` · ${track.album}` : ''}
-                            </p>
-                          </div>
-                          <button
-                            type="button"
-                            onClick={() => void addTrack(track)}
-                            disabled={
-                              !playlist ||
-                              saving ||
-                              alreadyAdded ||
-                              songs.length >= 100
-                            }
-                            className="flex size-10 shrink-0 items-center justify-center rounded-full border border-border text-primary transition-colors hover:bg-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring disabled:cursor-not-allowed disabled:opacity-45"
-                            aria-label={
-                              alreadyAdded
-                                ? `${track.title} is already in your playlist`
-                                : `Add ${track.title} to your playlist`
-                            }
-                            title={
-                              !playlist
-                                ? 'Create your playlist first'
-                                : alreadyAdded
-                                  ? 'Already added'
-                                  : 'Add to playlist'
-                            }
-                          >
-                            <Plus
-                              className="icon-size-200"
-                              aria-hidden="true"
-                            />
-                          </button>
-                        </li>
-                      );
-                    })}
-                  </ul>
+                            </button>
+                          </li>
+                        );
+                      })}
+                    </ul>
+                    {previewMessage ? (
+                      <p className="mt-200 text-200 text-destructive" role="alert">
+                        {previewMessage}
+                      </p>
+                    ) : null}
+                  </>
                 ) : (
                   <div className="rounded-2xl border border-dashed border-border bg-secondary/60 px-400 py-600 text-center">
                     <Sparkles
@@ -694,6 +761,17 @@ function App() {
                   </div>
                 )}
               </div>
+              <audio
+                ref={previewAudio}
+                className="sr-only"
+                onEnded={() => setPreviewTrackId('')}
+                onError={() => {
+                  setPreviewTrackId('');
+                  setPreviewMessage(
+                    'This preview is no longer available. Try opening the song in Spotify.',
+                  );
+                }}
+              />
             </section>
 
             <aside className="rounded-3xl border border-border bg-card p-500 shadow-2 sm:p-600">

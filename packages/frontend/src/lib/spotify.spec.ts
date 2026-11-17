@@ -31,10 +31,18 @@ describe('Spotify API helpers', () => {
               uri: 'spotify:track:trackid',
               name: 'Birthday',
               artists: [{ name: 'The Artist' }],
+              preview_url: 'https://p.scdn.co/mp3-preview/sample',
               album: {
                 name: 'Party Songs',
                 images: [{ url: 'https://i.scdn.co/image/cover' }],
               },
+            },
+            {
+              id: 'track-without-preview',
+              uri: 'spotify:track:anothertrack',
+              name: 'No Preview',
+              artists: [{ name: 'The Artist' }],
+              preview_url: 'http://example.com/audio',
             },
             { id: 'invalid-track', name: 'No URI' },
           ],
@@ -51,6 +59,16 @@ describe('Spotify API helpers', () => {
         artist: 'The Artist',
         album: 'Party Songs',
         coverUrl: 'https://i.scdn.co/image/cover',
+        previewUrl: 'https://p.scdn.co/mp3-preview/sample',
+      },
+      {
+        id: 'track-without-preview',
+        uri: 'spotify:track:anothertrack',
+        title: 'No Preview',
+        artist: 'The Artist',
+        album: '',
+        coverUrl: '',
+        previewUrl: '',
       },
     ]);
 

@@ -11,6 +11,7 @@ export interface SpotifyTrack {
   artist: string;
   album: string;
   coverUrl: string;
+  previewUrl: string;
 }
 
 interface AuthorizationRequest {
@@ -210,6 +211,11 @@ function mapTrack(value: unknown): SpotifyTrack | null {
     images[0].url.startsWith('https://')
       ? images[0].url.slice(0, 500)
       : '';
+  const previewUrl =
+    typeof value.preview_url === 'string' &&
+    value.preview_url.startsWith('https://')
+      ? value.preview_url.slice(0, 2000)
+      : '';
 
   return {
     id: value.id.slice(0, 128),
@@ -218,6 +224,7 @@ function mapTrack(value: unknown): SpotifyTrack | null {
     artist: artistNames || 'Unknown artist',
     album: albumName,
     coverUrl,
+    previewUrl,
   };
 }
 

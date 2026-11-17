@@ -985,7 +985,7 @@ function App() {
                 {getSpotifyRedirectUri(window.location.origin)}
               </code>
               . Spotify requires HTTPS for hosted apps; for local preview it
-              permits HTTP on <code>127.0.0.1</code>, but not
+              permits HTTP on the IPv6 loopback address <code>[::1]</code>, but not
               <code> localhost</code>. Your Spotify Client ID is public; this
               app never needs your client secret.
             </p>

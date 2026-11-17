@@ -13,7 +13,7 @@ afterEach(() => {
 describe('Spotify API helpers', () => {
   it('uses a Spotify-compatible loopback redirect for local preview', () => {
     expect(getSpotifyRedirectUri('http://localhost:5173')).toBe(
-      'http://127.0.0.1:5173',
+      'http://[::1]:5173',
     );
     expect(getSpotifyRedirectUri('https://birthday.example')).toBe(
       'https://birthday.example',

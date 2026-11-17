@@ -14,7 +14,8 @@ import './global.css';
 
 const callbackUrl = new URL(window.location.href);
 const isSpotifyLoopbackCallback =
-  callbackUrl.hostname === '127.0.0.1' &&
+  (callbackUrl.hostname === '127.0.0.1' ||
+    callbackUrl.hostname === '[::1]') &&
   (callbackUrl.searchParams.has('code') ||
     callbackUrl.searchParams.has('error'));
 

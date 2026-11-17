@@ -7,13 +7,13 @@ import {
   LoaderCircle,
   Moon,
   Music2,
-  Pause,
   Play,
   Plus,
   Search,
   Sparkles,
   Sun,
   Trash2,
+  X,
 } from 'lucide-react';
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 
@@ -83,10 +83,16 @@ function App() {
   const [exportMessage, setExportMessage] = useState('');
   const [exportUrl, setExportUrl] = useState('');
   const [exporting, setExporting] = useState(false);
-  const [previewTrackId, setPreviewTrackId] = useState('');
-  const [previewMessage, setPreviewMessage] = useState('');
-  const previewAudio = useRef<HTMLAudioElement>(null);
+  const [listeningTrack, setListeningTrack] = useState<{
+    id: string;
+    title: string;
+  } | null>(null);
+  const playerPanel = useRef<HTMLElement>(null);
   const callbackHandled = useRef(false);
+
+  useEffect(() => {
+    if (listeningTrack) playerPanel.current?.focus();
+  }, [listeningTrack]);
 
   async function readPlaylist() {
     const client = await getRayfinClient();
@@ -376,30 +382,13 @@ function App() {
     }
   }
 
-  async function togglePreview(track: SpotifyTrack) {
-    const audio = previewAudio.current;
-    if (!audio || !track.previewUrl) return;
-
-    if (previewTrackId === track.id) {
-      audio.pause();
-      audio.currentTime = 0;
-      setPreviewTrackId('');
+  function listenToTrack(uri: string, title: string) {
+    const match = /^spotify:track:([A-Za-z0-9]{1,128})$/u.exec(uri);
+    if (!match) {
+      setPageError('This song has an invalid Spotify link and cannot be played.');
       return;
     }
-
-    audio.pause();
-    audio.src = track.previewUrl;
-    audio.currentTime = 0;
-    setPreviewMessage('');
-    setPreviewTrackId(track.id);
-    try {
-      await audio.play();
-    } catch {
-      setPreviewTrackId('');
-      setPreviewMessage(
-        'This preview could not be played. Try opening the song in Spotify.',
-      );
-    }
+    setListeningTrack({ id: match[1], title });
   }
 
   async function exportToSpotify() {
@@ -589,6 +578,49 @@ function App() {
                 </p>
               ) : null}
 
+              {listeningTrack ? (
+                <section
+                  ref={playerPanel}
+                  tabIndex={-1}
+                  aria-label="Spotify song player"
+                  className="mb-400 rounded-2xl border border-border bg-secondary/60 p-300"
+                >
+                  <div className="mb-200 flex items-center justify-between gap-200">
+                    <p className="text-200 font-semibold">Listen on Spotify</p>
+                    <button
+                      type="button"
+                      onClick={() => setListeningTrack(null)}
+                      aria-label="Close Spotify player"
+                      className="flex size-9 shrink-0 items-center justify-center rounded-full text-muted-foreground hover:bg-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+                    >
+                      <X className="icon-size-200" aria-hidden="true" />
+                    </button>
+                  </div>
+                  <iframe
+                    key={listeningTrack.id}
+                    title={`Spotify player for ${listeningTrack.title}`}
+                    src={`https://open.spotify.com/embed/track/${listeningTrack.id}`}
+                    width="100%"
+                    height="152"
+                    className="block rounded-2xl border-0"
+                    allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"
+                    allowFullScreen
+                  />
+                  <p className="mt-200 text-200 text-muted-foreground">
+                    Press Play in the Spotify player. Playback and sign-in
+                    requirements are controlled by Spotify.{' '}
+                    <a
+                      href={`https://open.spotify.com/track/${listeningTrack.id}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="font-semibold text-primary underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+                    >
+                      Open in Spotify
+                    </a>
+                  </p>
+                </section>
+              ) : null}
+
               <form
                 onSubmit={searchTracks}
                 className="flex flex-col gap-200 sm:flex-row"
@@ -650,7 +682,6 @@ function App() {
                     <ul className="divide-y divide-border">
                       {searchResults.map((track) => {
                         const alreadyAdded = addedUris.has(track.uri);
-                        const isPreviewing = previewTrackId === track.id;
                         return (
                           <li
                             key={track.id}
@@ -682,31 +713,16 @@ function App() {
                             </div>
                             <button
                               type="button"
-                              onClick={() => void togglePreview(track)}
-                              disabled={!track.previewUrl}
+                              onClick={() => listenToTrack(track.uri, track.title)}
                               className="flex size-10 shrink-0 items-center justify-center rounded-full border border-border text-primary transition-colors hover:bg-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring disabled:cursor-not-allowed disabled:opacity-45"
-                              aria-label={
-                                track.previewUrl
-                                  ? `${isPreviewing ? 'Stop' : 'Play'} preview of ${track.title}`
-                                  : `No preview available for ${track.title}`
-                              }
-                              title={
-                                track.previewUrl
-                                  ? `${isPreviewing ? 'Stop' : 'Play'} preview`
-                                  : 'No preview available'
-                              }
+                              aria-label={`Listen to ${track.title} on Spotify`}
+                              aria-pressed={listeningTrack?.id === track.id}
+                              title="Open song in the Spotify player"
                             >
-                              {isPreviewing ? (
-                                <Pause
-                                  className="icon-size-200"
-                                  aria-hidden="true"
-                                />
-                              ) : (
-                                <Play
-                                  className="icon-size-200"
-                                  aria-hidden="true"
-                                />
-                              )}
+                              <Play
+                                className="icon-size-200"
+                                aria-hidden="true"
+                              />
                             </button>
                             <button
                               type="button"
@@ -740,11 +756,6 @@ function App() {
                         );
                       })}
                     </ul>
-                    {previewMessage ? (
-                      <p className="mt-200 text-200 text-destructive" role="alert">
-                        {previewMessage}
-                      </p>
-                    ) : null}
                   </>
                 ) : (
                   <div className="rounded-2xl border border-dashed border-border bg-secondary/60 px-400 py-600 text-center">
@@ -761,17 +772,6 @@ function App() {
                   </div>
                 )}
               </div>
-              <audio
-                ref={previewAudio}
-                className="sr-only"
-                onEnded={() => setPreviewTrackId('')}
-                onError={() => {
-                  setPreviewTrackId('');
-                  setPreviewMessage(
-                    'This preview is no longer available. Try opening the song in Spotify.',
-                  );
-                }}
-              />
             </section>
 
             <aside className="rounded-3xl border border-border bg-card p-500 shadow-2 sm:p-600">
@@ -833,6 +833,18 @@ function App() {
                               {song.artist}
                             </p>
                           </div>
+                          <button
+                            type="button"
+                            onClick={() => listenToTrack(song.spotifyUri, song.title)}
+                            aria-label={`Listen to ${song.title} on Spotify`}
+                            aria-pressed={
+                              `spotify:track:${listeningTrack?.id}` === song.spotifyUri
+                            }
+                            title="Open song in the Spotify player"
+                            className="flex size-9 shrink-0 items-center justify-center rounded-full border border-border text-primary transition-colors hover:bg-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+                          >
+                            <Play className="icon-size-200" aria-hidden="true" />
+                          </button>
                           <button
                             type="button"
                             onClick={() => void removeTrack(song)}

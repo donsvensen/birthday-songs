@@ -59,7 +59,6 @@ describe('Spotify API helpers', () => {
         artist: 'The Artist',
         album: 'Party Songs',
         coverUrl: 'https://i.scdn.co/image/cover',
-        previewUrl: 'https://p.scdn.co/mp3-preview/sample',
       },
       {
         id: 'track-without-preview',
@@ -68,7 +67,6 @@ describe('Spotify API helpers', () => {
         artist: 'The Artist',
         album: '',
         coverUrl: '',
-        previewUrl: '',
       },
     ]);
 

@@ -1,4 +1,4 @@
-export const SPOTIFY_CLIENT_ID = 'af577d1da210451c88248f73e73005e9';
+export const SPOTIFY_CLIENT_ID = '5bd1fe97ba74476897bf9fe0c32b67d6';
 
 const API_BASE = 'https://api.spotify.com/v1';
 const TOKEN_URL = 'https://accounts.spotify.com/api/token';

@@ -18,6 +18,7 @@ import {
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 
 import { useTheme } from './hooks/theme.context';
+import { SpotifySetup } from './SpotifySetup';
 import { getRayfinClient, type AppClient } from './lib/rayfin-client';
 import {
   createSpotifyAuthorization,
@@ -49,6 +50,8 @@ interface SpotifyOAuthState {
   state: string;
   codeVerifier: string;
   expiresAt: number;
+  clientId: string;
+  ownerId: string;
 }
 
 const STATE_KEY = 'birthday-songs.spotify-oauth-state';
@@ -65,7 +68,10 @@ function errorMessage(error: unknown, fallback: string): string {
   return error instanceof Error && error.message ? error.message : fallback;
 }
 
-function App() {
+function PlaylistBuilder({ clientId, openSetup }: {
+  clientId: string;
+  openSetup: () => void;
+}) {
   const { isDark, toggleTheme } = useTheme();
   const [playlist, setPlaylist] = useState<Playlist | null>(null);
   const [songs, setSongs] = useState<PlaylistSong[]>([]);
@@ -192,12 +198,18 @@ function App() {
             'codeVerifier' in parsed &&
             typeof parsed.codeVerifier === 'string' &&
             'expiresAt' in parsed &&
-            typeof parsed.expiresAt === 'number'
+            typeof parsed.expiresAt === 'number' &&
+            'clientId' in parsed &&
+            typeof parsed.clientId === 'string' &&
+            'ownerId' in parsed &&
+            typeof parsed.ownerId === 'string'
           ) {
             expectedState = {
               state: parsed.state,
               codeVerifier: parsed.codeVerifier,
               expiresAt: parsed.expiresAt,
+              clientId: parsed.clientId,
+              ownerId: parsed.ownerId,
             };
           }
         }
@@ -218,6 +230,7 @@ function App() {
         !expectedState ||
         !returnedState ||
         returnedState !== expectedState.state ||
+        expectedState.clientId !== clientId ||
         expectedState.expiresAt < Date.now()
       ) {
         setExportMessage(
@@ -237,7 +250,12 @@ function App() {
       setConnecting(true);
       setExportMessage('');
       try {
+        const client = await getRayfinClient();
+        if (ownerId(client) !== expectedState.ownerId) {
+          throw new Error('The signed-in account changed. Connect Spotify again.');
+        }
         const token = await exchangeSpotifyCode(
+          clientId,
           code,
           getSpotifyRedirectUri(window.location.origin),
           expectedState.codeVerifier,
@@ -252,7 +270,7 @@ function App() {
         setConnecting(false);
       }
     })();
-  }, [loading]);
+  }, [loading, clientId]);
 
   async function createPlaylist(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -387,7 +405,9 @@ function App() {
     setConnecting(true);
     setExportMessage('');
     try {
+      const client = await getRayfinClient();
       const authorization = await createSpotifyAuthorization(
+        clientId,
         getSpotifyRedirectUri(window.location.origin),
       );
       sessionStorage.setItem(
@@ -396,6 +416,8 @@ function App() {
           state: authorization.state,
           codeVerifier: authorization.codeVerifier,
           expiresAt: Date.now() + 10 * 60_000,
+          clientId,
+          ownerId: ownerId(client),
         } satisfies SpotifyOAuthState),
       );
       window.location.assign(authorization.url);
@@ -457,7 +479,7 @@ function App() {
   return (
     <div className="min-h-full bg-background px-400 py-500 text-foreground sm:px-700 sm:py-700">
       <div className="mx-auto max-w-6xl">
-        <header className="mb-600 flex items-center justify-between gap-300">
+        <header className="mb-600 flex flex-wrap items-center justify-between gap-300">
           <div className="flex items-center gap-200">
             <span className="flex size-11 items-center justify-center rounded-2xl bg-primary text-primary-foreground shadow-4">
               <Music2 className="icon-size-300" aria-hidden="true" />
@@ -471,18 +493,28 @@ function App() {
               </p>
             </div>
           </div>
-          <button
-            type="button"
-            onClick={toggleTheme}
-            className="flex size-11 items-center justify-center rounded-full border border-border bg-card text-foreground transition-colors hover:bg-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
-            aria-label={`Switch to ${isDark ? 'light' : 'dark'} theme`}
-          >
-            {isDark ? (
-              <Sun className="icon-size-200" aria-hidden="true" />
-            ) : (
-              <Moon className="icon-size-200" aria-hidden="true" />
-            )}
-          </button>
+          <div className="flex items-center gap-200">
+            <button
+              type="button"
+              onClick={openSetup}
+              disabled={saving || exporting || connecting}
+              className="min-h-11 rounded-xl border border-border bg-card px-300 py-200 text-200 font-semibold hover:bg-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring disabled:opacity-50"
+            >
+              Spotify setup
+            </button>
+            <button
+              type="button"
+              onClick={toggleTheme}
+              className="flex size-11 items-center justify-center rounded-full border border-border bg-card text-foreground transition-colors hover:bg-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+              aria-label={`Switch to ${isDark ? 'light' : 'dark'} theme`}
+            >
+              {isDark ? (
+                <Sun className="icon-size-200" aria-hidden="true" />
+              ) : (
+                <Moon className="icon-size-200" aria-hidden="true" />
+              )}
+            </button>
+          </div>
         </header>
 
         <main>
@@ -1092,4 +1124,12 @@ function App() {
   );
 }
 
-export default App;
+export default function App() {
+  return (
+    <SpotifySetup>
+      {(clientId, openSetup) => (
+        <PlaylistBuilder key={clientId} clientId={clientId} openSetup={openSetup} />
+      )}
+    </SpotifySetup>
+  );
+}

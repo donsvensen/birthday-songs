@@ -1,8 +1,11 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import {
+  createSpotifyAuthorization,
   createSpotifyPlaylist,
+  exchangeSpotifyCode,
   getSpotifyRedirectUri,
+  isSpotifyClientId,
   searchSpotifyTracks,
 } from './spotify';
 
@@ -11,6 +14,30 @@ afterEach(() => {
 });
 
 describe('Spotify API helpers', () => {
+  it('validates public Client IDs', () => {
+    expect(isSpotifyClientId('0123456789abcdef0123456789abcdef')).toBe(true);
+    expect(isSpotifyClientId('')).toBe(false);
+    expect(isSpotifyClientId('not-an-id')).toBe(false);
+  });
+
+  it('uses the supplied Client ID for both authorization and token exchange', async () => {
+    const clientId = 'abcdef0123456789abcdef0123456789';
+    const redirect = 'http://[::1]:5173';
+    const authorization = await createSpotifyAuthorization(clientId, redirect);
+    const url = new URL(authorization.url);
+    expect(url.searchParams.get('client_id')).toBe(clientId);
+    expect(url.searchParams.get('redirect_uri')).toBe(redirect);
+    expect(url.searchParams.get('code_challenge_method')).toBe('S256');
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true, json: async () => ({ access_token: 'test-token' }),
+    });
+    vi.stubGlobal('fetch', fetchMock);
+    await expect(exchangeSpotifyCode(clientId, 'code', redirect, authorization.codeVerifier))
+      .resolves.toBe('test-token');
+    expect(fetchMock.mock.calls[0]?.[1].body.get('client_id')).toBe(clientId);
+    expect(fetchMock.mock.calls[0]?.[1].body.get('redirect_uri')).toBe(redirect);
+  });
+
   it('explains development-mode access restrictions when Spotify refuses a user', async () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
       ok: false,

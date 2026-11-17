@@ -42,6 +42,13 @@ vi.mock('@/lib/rayfin-client', () => {
       data: {
         BirthdayPlaylist: { ...query, delete: deletePlaylist },
         PlaylistSong: { ...query, create: createSong, delete: deleteSong },
+        SpotifySettings: {
+          select: () => ({
+            first: () => ({
+              execute: async () => [{ id: 'settings', clientId: '0123456789abcdef0123456789abcdef' }],
+            }),
+          }),
+        },
       },
     }),
   };
@@ -73,10 +80,27 @@ describe('App', () => {
     expect(document.body).not.toBeEmptyDOMElement();
   });
 
-  it('shows the birthday playlist builder', () => {
-    const { getByText, getByLabelText } = render(<App />);
-    expect(getByText('Make a mix worth celebrating.')).toBeInTheDocument();
+  it('shows the birthday playlist builder', async () => {
+    const { findByText, getByLabelText } = render(<App />);
+    expect(await findByText('Make a mix worth celebrating.')).toBeInTheDocument();
     expect(getByLabelText('Search songs or artists on Spotify')).toBeInTheDocument();
+  });
+
+  it.each([
+    ['abcdef0123456789abcdef0123456789', 'test-user'],
+    ['0123456789abcdef0123456789abcdef', 'different-user'],
+  ])('does not exchange an OAuth callback for another client or user (%s, %s)', async (clientId, ownerId) => {
+    sessionStorage.setItem('birthday-songs.spotify-oauth-state', JSON.stringify({
+      state: 'test-state',
+      codeVerifier: 'test-verifier',
+      expiresAt: Date.now() + 60_000,
+      clientId,
+      ownerId,
+    }));
+    window.history.replaceState({}, '', '/?code=test-code&state=test-state');
+    const view = render(<App />);
+    await view.findByText(/Spotify sign-in expired|Spotify could not complete/);
+    expect(exchangeSpotifyCode).not.toHaveBeenCalled();
   });
 
   it('requires confirmation and resets the saved playlist and name', async () => {
@@ -180,6 +204,8 @@ describe('App', () => {
       state: 'test-state',
       codeVerifier: 'test-verifier',
       expiresAt: Date.now() + 60_000,
+      clientId: '0123456789abcdef0123456789abcdef',
+      ownerId: 'test-user',
     }));
     window.history.replaceState({}, '', '/?code=test-code&state=test-state');
     exchangeSpotifyCode.mockResolvedValue('test-token');
@@ -193,6 +219,12 @@ describe('App', () => {
     }]);
     const view = render(<App />);
     await view.findByText('Spotify connected');
+    expect(exchangeSpotifyCode).toHaveBeenCalledWith(
+      '0123456789abcdef0123456789abcdef',
+      'test-code',
+      expect.any(String),
+      'test-verifier',
+    );
     fireEvent.change(view.getByLabelText('Search songs or artists on Spotify'), {
       target: { value: 'Mariah Carey' },
     });

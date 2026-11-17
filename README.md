@@ -1,5 +1,22 @@
 # Universal App Template
 
+## Birthday mix: personal Spotify setup
+
+On first use, each signed-in person enters their own public Spotify Client ID.
+The setup page links to the Spotify Developer Dashboard and explains the app
+name, description, Website, Web API selection, and exact redirect address to register.
+No client secret is needed or accepted. Client IDs are stored in owner-only
+`SpotifySettings` records; Spotify access tokens stay in memory.
+
+Use **Spotify setup** in the app header to change the ID later without deleting
+saved playlists. Changing the ID requires reconnecting Spotify. After publishing,
+open setup on the published app and register its displayed HTTPS redirect address
+in the corresponding Spotify developer app as well.
+
+Each Spotify app remains subject to Spotify's Development Mode requirements:
+the owner needs Premium, and other Spotify accounts must be allowlisted.
+Providing an individual Client ID does not bypass those requirements.
+
 > **⚠️ This repository is under active development.** Features and instructions may change.
 
 This is the workspace template the Rayfin Copilot plugin uses to build Fabric Apps.

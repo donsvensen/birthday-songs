@@ -7,6 +7,7 @@
 
 import { BirthdayPlaylist } from './BirthdayPlaylist.js';
 import { PlaylistSong } from './PlaylistSong.js';
+import { SpotifySettings } from './SpotifySettings.js';
 import type { UniversalAppSchema } from '@rayfin-app/shared';
 
 /**
@@ -14,6 +15,6 @@ import type { UniversalAppSchema } from '@rayfin-app/shared';
  * UniversalAppSchema so both entities remain type-safe in the browser.
  */
 export type { UniversalAppSchema };
-export { BirthdayPlaylist, PlaylistSong };
+export { BirthdayPlaylist, PlaylistSong, SpotifySettings };
 
-export const schema = [BirthdayPlaylist, PlaylistSong];
+export const schema = [BirthdayPlaylist, PlaylistSong, SpotifySettings];

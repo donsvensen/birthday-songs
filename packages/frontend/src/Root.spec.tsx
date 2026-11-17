@@ -18,6 +18,13 @@ vi.mock('./lib/rayfin-client', () => {
       data: {
         BirthdayPlaylist: query,
         PlaylistSong: query,
+        SpotifySettings: {
+          select: () => ({
+            first: () => ({
+              execute: async () => [{ id: 'settings', clientId: '0123456789abcdef0123456789abcdef' }],
+            }),
+          }),
+        },
       },
     }),
   };

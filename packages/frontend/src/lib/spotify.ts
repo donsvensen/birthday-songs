@@ -1,5 +1,3 @@
-export const SPOTIFY_CLIENT_ID = '5bd1fe97ba74476897bf9fe0c32b67d6';
-
 const API_BASE = 'https://api.spotify.com/v1';
 const TOKEN_URL = 'https://accounts.spotify.com/api/token';
 const REQUEST_TIMEOUT_MS = 10_000;
@@ -37,6 +35,16 @@ export function getSpotifyRedirectUri(origin: string): string {
   return redirect.origin;
 }
 
+export function isSpotifyClientId(value: string): boolean {
+  return /^[a-fA-F0-9]{32}$/u.test(value);
+}
+
+function validateClientId(clientId: string) {
+  if (!isSpotifyClientId(clientId)) {
+    throw new SpotifyApiError('Enter the 32-character Client ID from your Spotify developer app.');
+  }
+}
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null;
 }
@@ -65,14 +73,16 @@ async function codeChallenge(verifier: string): Promise<string> {
 }
 
 export async function createSpotifyAuthorization(
+  clientId: string,
   redirectUri: string,
 ): Promise<AuthorizationRequest> {
+  validateClientId(clientId);
   const state = randomString(64);
   const codeVerifier = randomString(64);
   const challenge = await codeChallenge(codeVerifier);
   const url = new URL('https://accounts.spotify.com/authorize');
   url.search = new URLSearchParams({
-    client_id: SPOTIFY_CLIENT_ID,
+    client_id: clientId,
     response_type: 'code',
     redirect_uri: redirectUri,
     scope: 'playlist-modify-private',
@@ -123,17 +133,19 @@ function requestFailure(status: number): SpotifyApiError {
 }
 
 export async function exchangeSpotifyCode(
+  clientId: string,
   code: string,
   redirectUri: string,
   codeVerifier: string,
 ): Promise<string> {
+  validateClientId(clientId);
   let response: Response;
   try {
     response = await fetch(TOKEN_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
       body: new URLSearchParams({
-        client_id: SPOTIFY_CLIENT_ID,
+        client_id: clientId,
         grant_type: 'authorization_code',
         code,
         redirect_uri: redirectUri,

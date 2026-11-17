@@ -17,7 +17,14 @@ export interface PlaylistSongRecord {
   owner_id: string;
 }
 
+export interface SpotifySettingsRecord {
+  id: string;
+  clientId: string;
+  owner_id: string;
+}
+
 export type UniversalAppSchema = {
   BirthdayPlaylist: BirthdayPlaylistRecord;
   PlaylistSong: PlaylistSongRecord;
+  SpotifySettings: SpotifySettingsRecord;
 };

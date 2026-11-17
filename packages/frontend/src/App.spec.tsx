@@ -8,9 +8,11 @@
 import { fireEvent, render } from '@testing-library/react';
 import { afterEach, beforeEach, describe, it, expect, vi } from 'vitest';
 
-const { execute, createSong, searchSpotifyTracks, exchangeSpotifyCode } = vi.hoisted(() => ({
+const { execute, createSong, deleteSong, deletePlaylist, searchSpotifyTracks, exchangeSpotifyCode } = vi.hoisted(() => ({
   execute: vi.fn(),
   createSong: vi.fn(),
+  deleteSong: vi.fn(),
+  deletePlaylist: vi.fn(),
   searchSpotifyTracks: vi.fn(),
   exchangeSpotifyCode: vi.fn(),
 }));
@@ -38,8 +40,8 @@ vi.mock('@/lib/rayfin-client', () => {
         }),
       },
       data: {
-        BirthdayPlaylist: query,
-        PlaylistSong: { ...query, create: createSong },
+        BirthdayPlaylist: { ...query, delete: deletePlaylist },
+        PlaylistSong: { ...query, create: createSong, delete: deleteSong },
       },
     }),
   };
@@ -51,6 +53,8 @@ describe('App', () => {
   beforeEach(() => {
     execute.mockReset().mockResolvedValue([]);
     createSong.mockReset();
+    deleteSong.mockReset().mockResolvedValue(undefined);
+    deletePlaylist.mockReset().mockResolvedValue(undefined);
     searchSpotifyTracks.mockReset();
     exchangeSpotifyCode.mockReset();
   });
@@ -73,6 +77,54 @@ describe('App', () => {
     const { getByText, getByLabelText } = render(<App />);
     expect(getByText('Make a mix worth celebrating.')).toBeInTheDocument();
     expect(getByLabelText('Search songs or artists on Spotify')).toBeInTheDocument();
+  });
+
+  it('requires confirmation and resets the saved playlist and name', async () => {
+    execute
+      .mockResolvedValueOnce([{ id: 'playlist', title: 'Birthday mix' }])
+      .mockResolvedValueOnce([
+        { id: 'song1', title: 'First song', spotifyUri: 'spotify:track:one' },
+        { id: 'song2', title: 'Second song', spotifyUri: 'spotify:track:two' },
+      ]);
+    const view = render(<App />);
+    fireEvent.click(await view.findByRole('button', { name: 'Start over' }));
+    expect(deleteSong).not.toHaveBeenCalled();
+    fireEvent.click(view.getByRole('button', { name: 'Cancel' }));
+    expect(deletePlaylist).not.toHaveBeenCalled();
+    fireEvent.click(view.getByRole('button', { name: 'Start over' }));
+    fireEvent.click(view.getByRole('button', { name: 'Yes, start over' }));
+    expect(await view.findByRole('button', { name: 'Create my playlist' })).toBeVisible();
+    expect(view.getByLabelText('Playlist name')).toHaveValue('');
+    expect(deleteSong.mock.calls).toEqual([[{ id: 'song1' }], [{ id: 'song2' }]]);
+    expect(deletePlaylist).toHaveBeenCalledWith({ id: 'playlist' });
+    expect(deletePlaylist.mock.invocationCallOrder[0]).toBeGreaterThan(
+      deleteSong.mock.invocationCallOrder[1],
+    );
+    view.unmount();
+    const reloaded = render(<App />);
+    expect(await reloaded.findByRole('button', { name: 'Create my playlist' })).toBeVisible();
+  });
+
+  it('keeps remaining songs visible if reset fails and lets the user retry', async () => {
+    execute
+      .mockResolvedValueOnce([{ id: 'playlist', title: 'Birthday mix' }])
+      .mockResolvedValueOnce([
+        { id: 'song1', title: 'First song', spotifyUri: 'spotify:track:one' },
+        { id: 'song2', title: 'Second song', spotifyUri: 'spotify:track:two' },
+      ]);
+    deleteSong.mockResolvedValueOnce(undefined).mockRejectedValueOnce(new Error('Connection lost'));
+    const view = render(<App />);
+    fireEvent.click(await view.findByRole('button', { name: 'Start over' }));
+    fireEvent.click(view.getByRole('button', { name: 'Yes, start over' }));
+    expect(await view.findByText(/Connection lost/)).toBeVisible();
+    expect(view.queryByText('First song')).toBeNull();
+    expect(view.getByText('Second song')).toBeVisible();
+    expect(deletePlaylist).not.toHaveBeenCalled();
+    fireEvent.click(view.getByRole('button', { name: 'Yes, start over' }));
+    expect(await view.findByRole('button', { name: 'Create my playlist' })).toBeVisible();
+    expect(deleteSong.mock.calls).toEqual([
+      [{ id: 'song1' }], [{ id: 'song2' }], [{ id: 'song2' }],
+    ]);
   });
 
   it('opens saved songs in a single Spotify embed without preview URLs', async () => {

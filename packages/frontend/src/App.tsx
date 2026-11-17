@@ -83,6 +83,7 @@ function App() {
   const [exportMessage, setExportMessage] = useState('');
   const [exportUrl, setExportUrl] = useState('');
   const [exporting, setExporting] = useState(false);
+  const [confirmReset, setConfirmReset] = useState(false);
   const [listeningTrack, setListeningTrack] = useState<SpotifyTrack | null>(null);
   const playerPanel = useRef<HTMLElement>(null);
   const callbackHandled = useRef(false);
@@ -349,6 +350,33 @@ function App() {
     } catch (error) {
       setPageError(
         errorMessage(error, 'That song could not be removed. Please try again.'),
+      );
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function resetPlaylist() {
+    if (!playlist || saving || exporting || connecting) return;
+    setSaving(true);
+    setPageError('');
+    try {
+      const client = await getRayfinClient();
+      for (const song of songs) {
+        await client.data.PlaylistSong.delete({ id: song.id });
+        setSongs((current) => current.filter((item) => item.id !== song.id));
+      }
+      await client.data.BirthdayPlaylist.delete({ id: playlist.id });
+      setPlaylist(null);
+      setPlaylistTitle('');
+      setListeningTrack(null);
+      setExportMessage('');
+      setExportUrl('');
+      setConfirmReset(false);
+    } catch (error) {
+      setPageError(
+        errorMessage(error, 'Could not finish starting over. Please try again.') +
+          ' Any songs already removed stay removed. Your remaining playlist is still saved.',
       );
     } finally {
       setSaving(false);
@@ -953,7 +981,7 @@ function App() {
                   <button
                     type="button"
                     onClick={() => void exportToSpotify()}
-                    disabled={exporting || connecting || songs.length === 0}
+                    disabled={saving || exporting || connecting || songs.length === 0}
                     className="inline-flex h-12 w-full items-center justify-center gap-200 rounded-xl bg-accent px-400 text-300 font-bold text-accent-foreground transition-colors hover:bg-accent/80 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring disabled:cursor-not-allowed disabled:opacity-50"
                   >
                     {exporting || connecting ? (
@@ -1012,6 +1040,47 @@ function App() {
                     Spotify will ask for permission to create a private
                     playlist in your account.
                   </p>
+                  {confirmReset ? (
+                    <div
+                      role="group"
+                      aria-label="Confirm starting over"
+                      className="mt-400 rounded-xl border border-border bg-secondary p-300"
+                    >
+                      <p className="text-200 leading-300">
+                        Remove this playlist name and all its saved songs?
+                        This cannot be undone. Playlists already created in
+                        Spotify will not be changed.
+                      </p>
+                      <div className="mt-300 flex flex-wrap gap-200">
+                        <button
+                          type="button"
+                          onClick={() => void resetPlaylist()}
+                          disabled={saving || exporting || connecting}
+                          className="inline-flex min-h-11 items-center justify-center rounded-xl bg-destructive px-300 py-200 text-200 font-semibold text-destructive-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring disabled:opacity-50"
+                        >
+                          {saving ? 'Starting over…' : 'Yes, start over'}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setConfirmReset(false)}
+                          disabled={saving}
+                          className="inline-flex min-h-11 items-center justify-center rounded-xl border border-border bg-background px-300 py-200 text-200 font-semibold focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring disabled:opacity-50"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => setConfirmReset(true)}
+                      disabled={loading || saving || exporting || connecting}
+                      className="mt-400 inline-flex min-h-11 items-center justify-center gap-200 rounded-xl border border-border px-300 py-200 text-200 font-semibold text-destructive hover:bg-destructive/10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring disabled:opacity-50"
+                    >
+                      <Trash2 className="icon-size-200" aria-hidden="true" />
+                      Start over
+                    </button>
+                  )}
                 </div>
               ) : null}
             </aside>

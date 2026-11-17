@@ -5,6 +5,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { Root } from './Root';
 import type { AuthConfig, IAuthService } from './services/rayfin-auth.service';
 
+const { dataAccess } = vi.hoisted(() => ({ dataAccess: vi.fn() }));
+
 vi.mock('./lib/rayfin-client', () => {
   const query = {
     select: () => query,
@@ -14,19 +16,22 @@ vi.mock('./lib/rayfin-client', () => {
     execute: async () => [],
   };
   return {
-    getRayfinClient: async () => ({
-      data: {
-        BirthdayPlaylist: query,
-        PlaylistSong: query,
-        SpotifySettings: {
-          select: () => ({
-            first: () => ({
-              execute: async () => [{ id: 'settings', clientId: '0123456789abcdef0123456789abcdef' }],
+    getRayfinClient: async () => {
+      dataAccess();
+      return {
+        data: {
+          BirthdayPlaylist: query,
+          PlaylistSong: query,
+          SpotifySettings: {
+            select: () => ({
+              first: () => ({
+                execute: async () => [{ id: 'settings', clientId: '0123456789abcdef0123456789abcdef' }],
+              }),
             }),
-          }),
+          },
         },
-      },
-    }),
+      };
+    },
   };
 });
 
@@ -47,6 +52,7 @@ function service(config: AuthConfig = { kind: 'ready' }): IAuthService {
 
 describe('protected app content with standalone sign-in', () => {
   beforeEach(() => {
+    dataAccess.mockClear();
     vi.stubGlobal(
       'matchMedia',
       vi.fn(() => ({
@@ -82,6 +88,12 @@ describe('protected app content with standalone sign-in', () => {
       screen.queryByRole('heading', { name: 'Make a mix worth celebrating.' })
     ).toBeNull();
     expect(screen.queryByText(/outside Fabric/)).toBeNull();
+    expect(screen.getByRole('heading', {
+      name: 'Your next birthday deserves a great soundtrack.',
+    })).toBeVisible();
+    expect(screen.getByRole('link', { name: 'Spotify Developer Dashboard' })).toBeVisible();
+    expect(screen.queryByLabelText('Spotify Client ID')).toBeNull();
+    expect(dataAccess).not.toHaveBeenCalled();
   });
 
   it('renders birthday content only after a silent authenticated session resolves', async () => {
@@ -109,6 +121,7 @@ describe('protected app content with standalone sign-in', () => {
     expect(
       screen.queryByRole('heading', { name: 'Make a mix worth celebrating.' })
     ).toBeNull();
+    expect(dataAccess).not.toHaveBeenCalled();
   });
 
   it('recovers from failed local automatic sign-in through a user gesture', async () => {

@@ -8,6 +8,7 @@
 import { type ReactNode } from 'react';
 
 import { useAuth } from '@/hooks/auth.context';
+import { PublicWelcome } from '@/PublicWelcome';
 
 interface AuthGateProps {
   children: ReactNode;
@@ -104,8 +105,8 @@ export function AuthGate({ children }: AuthGateProps) {
 
   if (!isAuthenticated && canSignIn) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-background p-4">
-        <div className="w-full max-w-md rounded-xl border border-border bg-card p-6 text-center shadow-lg">
+      <PublicWelcome>
+        <div className="w-full rounded-3xl border border-border bg-card p-500 text-center shadow-2 sm:p-600">
           <div
             aria-hidden="true"
             className="mx-auto mb-4 grid h-10 w-10 grid-cols-2 gap-0.5"
@@ -116,10 +117,10 @@ export function AuthGate({ children }: AuthGateProps) {
             <span className="bg-primary/90" />
           </div>
           <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-primary">
-            Fabric App
+            Your private birthday mix
           </p>
           <h2 className="mb-2 text-xl font-semibold text-card-foreground">
-            {error ? "Couldn't sign you in automatically" : 'Welcome back'}
+            {error ? "Couldn't sign you in automatically" : 'Save your own soundtrack'}
           </h2>
           {error ? (
             <p role="alert" className="mb-4 text-sm text-destructive">
@@ -127,7 +128,8 @@ export function AuthGate({ children }: AuthGateProps) {
             </p>
           ) : (
             <p className="mb-6 text-sm text-muted-foreground">
-              Sign in with your Microsoft account to open this Fabric app.
+              Sign in with Microsoft to save your Spotify Client ID and playlists
+              privately. Your Spotify account is connected separately after setup.
             </p>
           )}
           <button
@@ -148,7 +150,7 @@ export function AuthGate({ children }: AuthGateProps) {
             </p>
           ) : null}
         </div>
-      </div>
+      </PublicWelcome>
     );
   }
 

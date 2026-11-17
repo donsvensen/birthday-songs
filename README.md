@@ -2,6 +2,14 @@
 
 ## Birthday mix: personal Spotify setup
 
+The hosted frontend is public: signed-out visitors can read the birthday welcome
+and Spotify setup guide. Microsoft sign-in is still required before mounting the
+playlist builder or reading/writing Client IDs and playlists. All three entities
+retain their owner-only authenticated policies; no anonymous database permissions
+are granted. Spotify authorization remains separate. Fabricator's local auto-login
+can skip the public welcome page in the preview; verify signed-out hosting after
+publishing through Fabricator.
+
 On first use, each signed-in person enters their own public Spotify Client ID.
 The setup page links to the Spotify Developer Dashboard and explains the app
 name, description, Website, Web API selection, and exact redirect address to register.

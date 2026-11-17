@@ -1,12 +1,25 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { createSpotifyPlaylist, searchSpotifyTracks } from './spotify';
+import {
+  createSpotifyPlaylist,
+  getSpotifyRedirectUri,
+  searchSpotifyTracks,
+} from './spotify';
 
 afterEach(() => {
   vi.unstubAllGlobals();
 });
 
 describe('Spotify API helpers', () => {
+  it('uses a Spotify-compatible loopback redirect for local preview', () => {
+    expect(getSpotifyRedirectUri('http://localhost:5173')).toBe(
+      'http://127.0.0.1:5173',
+    );
+    expect(getSpotifyRedirectUri('https://birthday.example')).toBe(
+      'https://birthday.example',
+    );
+  });
+
   it('returns a bounded track shape from Spotify search results', async () => {
     const fetchMock = vi.fn(async () => ({
       ok: true,

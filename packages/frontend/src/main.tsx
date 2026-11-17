@@ -12,8 +12,19 @@ import { bootstrapAuth } from './services/rayfin-auth.service';
 
 import './global.css';
 
-const rayfinAuthService = await bootstrapAuth();
+const callbackUrl = new URL(window.location.href);
+const isSpotifyLoopbackCallback =
+  callbackUrl.hostname === '127.0.0.1' &&
+  (callbackUrl.searchParams.has('code') ||
+    callbackUrl.searchParams.has('error'));
 
-createRoot(document.getElementById('root')!).render(
-  <Root rayfinAuthService={rayfinAuthService} />
-);
+if (isSpotifyLoopbackCallback) {
+  callbackUrl.hostname = 'localhost';
+  window.location.replace(callbackUrl.toString());
+} else {
+  const rayfinAuthService = await bootstrapAuth();
+
+  createRoot(document.getElementById('root')!).render(
+    <Root rayfinAuthService={rayfinAuthService} />
+  );
+}

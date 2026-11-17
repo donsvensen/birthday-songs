@@ -29,6 +29,14 @@ export class SpotifyApiError extends Error {
   }
 }
 
+export function getSpotifyRedirectUri(origin: string): string {
+  const redirect = new URL(origin);
+  if (redirect.protocol === 'http:' && redirect.hostname === 'localhost') {
+    redirect.hostname = '127.0.0.1';
+  }
+  return redirect.origin;
+}
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null;
 }

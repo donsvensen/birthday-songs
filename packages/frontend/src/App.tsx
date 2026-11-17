@@ -21,6 +21,7 @@ import {
   createSpotifyAuthorization,
   createSpotifyPlaylist,
   exchangeSpotifyCode,
+  getSpotifyRedirectUri,
   spotifyErrorMessage,
   searchSpotifyTracks,
   type SpotifyTrack,
@@ -229,7 +230,7 @@ function App() {
       try {
         const token = await exchangeSpotifyCode(
           code,
-          window.location.origin,
+          getSpotifyRedirectUri(window.location.origin),
           expectedState.codeVerifier,
         );
         setAccessToken(token);
@@ -351,7 +352,7 @@ function App() {
     setExportMessage('');
     try {
       const authorization = await createSpotifyAuthorization(
-        window.location.origin,
+        getSpotifyRedirectUri(window.location.origin),
       );
       sessionStorage.setItem(
         STATE_KEY,
@@ -903,10 +904,12 @@ function App() {
               </span>{' '}
               add this redirect address to your Spotify developer app:{' '}
               <code className="break-all rounded bg-background px-100 py-100 text-foreground">
-                {window.location.origin}
+                {getSpotifyRedirectUri(window.location.origin)}
               </code>
-              . Your Spotify Client ID is public; this app never needs your
-              client secret.
+              . Spotify requires HTTPS for hosted apps; for local preview it
+              permits HTTP on <code>127.0.0.1</code>, but not
+              <code> localhost</code>. Your Spotify Client ID is public; this
+              app never needs your client secret.
             </p>
           </section>
         </main>

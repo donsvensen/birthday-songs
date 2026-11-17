@@ -1,7 +1,23 @@
-/**
- * Entity map shared by the data registration package and typed browser client.
- *
- * It remains empty while the data service is disabled. Data capabilities add
- * entity keys here so every runtime consumes the same schema contract.
- */
-export type UniversalAppSchema = Record<string, never>;
+export interface BirthdayPlaylistRecord {
+  id: string;
+  title: string;
+  createdAt: Date;
+  owner_id: string;
+}
+
+export interface PlaylistSongRecord {
+  id: string;
+  playlist_id: string;
+  spotifyUri: string;
+  title: string;
+  artist: string;
+  album: string;
+  coverUrl?: string | null;
+  addedAt: Date;
+  owner_id: string;
+}
+
+export type UniversalAppSchema = {
+  BirthdayPlaylist: BirthdayPlaylistRecord;
+  PlaylistSong: PlaylistSongRecord;
+};

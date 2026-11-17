@@ -1,6 +1,6 @@
 import { getSpotifyRedirectUri } from './lib/spotify';
 
-export function SpotifySetupGuide() {
+export function SpotifySetupGuide({ guest = false }: { guest?: boolean }) {
   return (
     <>
       <ol className="mt-400 list-decimal space-y-300 pl-500 text-200 leading-400">
@@ -32,7 +32,7 @@ export function SpotifySetupGuide() {
         <li>
           Open the app&apos;s <strong>Settings</strong> and copy its{' '}
           <strong>Client ID</strong>, not the Client Secret.
-          After signing in to Birthday mix with Microsoft, save that ID in setup,
+          {guest ? 'Enter that ID in guest setup,' : 'Enter that ID in guest setup, or sign in with Microsoft to save it privately,'}
           then select <strong>Connect Spotify</strong> to authorize your Spotify account.
         </li>
       </ol>

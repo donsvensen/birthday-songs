@@ -2,6 +2,14 @@
 
 ## Birthday mix: personal Spotify setup
 
+**Guest mode:** choose **Continue as guest** to enter a Client ID and use Spotify
+without Microsoft sign-in. Guest settings and playlist drafts live only in React
+state, never the database or browser storage. Reloading, leaving, changing Client
+ID, or reconnecting Spotify loses the draft; exported Spotify playlists remain.
+Only expiring PKCE callback metadata (including guest mode and public Client ID)
+uses session storage so Spotify authorization can return to guest mode.
+Guest operations never read or write the private app entities.
+
 The hosted frontend is public: signed-out visitors can read the birthday welcome
 and Spotify setup guide. Microsoft sign-in is still required before mounting the
 playlist builder or reading/writing Client IDs and playlists. All three entities

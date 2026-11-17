@@ -5,16 +5,19 @@
 // </copyright>
 //-----------------------------------------------------------------------
 
-import { type ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 
 import { useAuth } from '@/hooks/auth.context';
 import { PublicWelcome } from '@/PublicWelcome';
+import App from '@/App';
+import { guestCallbackClientId } from '@/lib/guest-oauth';
 
 interface AuthGateProps {
   children: ReactNode;
 }
 
 export function AuthGate({ children }: AuthGateProps) {
+  const [guest, setGuest] = useState(() => Boolean(guestCallbackClientId()));
   const {
     isLoading,
     isAuthenticated,
@@ -25,6 +28,8 @@ export function AuthGate({ children }: AuthGateProps) {
     config,
     error,
   } = useAuth();
+
+  if (guest) return <App guest />;
 
   if (isLoading) {
     return (
@@ -118,6 +123,14 @@ export function AuthGate({ children }: AuthGateProps) {
           </div>
           <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-primary">
             Your private birthday mix
+          </p>
+          <button type="button" onClick={() => setGuest(true)}
+            className="mb-300 w-full rounded-xl bg-accent px-400 py-300 text-300 font-semibold text-accent-foreground hover:bg-accent/80 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring">
+            Continue as guest
+          </button>
+          <p className="mb-400 text-200 text-muted-foreground">
+            No Microsoft account needed. Your draft is temporary and disappears
+            on refresh or close. Spotify sign-in is still required.
           </p>
           <h2 className="mb-2 text-xl font-semibold text-card-foreground">
             {error ? "Couldn't sign you in automatically" : 'Save your own soundtrack'}

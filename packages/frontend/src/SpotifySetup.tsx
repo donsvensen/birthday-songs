@@ -5,6 +5,7 @@ import { useTheme } from './hooks/theme.context';
 import { getRayfinClient } from './lib/rayfin-client';
 import { isSpotifyClientId } from './lib/spotify';
 import { SpotifySetupGuide } from './SpotifySetupGuide';
+import { guestCallbackClientId } from './lib/guest-oauth';
 
 interface Settings {
   id: string;
@@ -13,8 +14,10 @@ interface Settings {
 
 export function SpotifySetup({
   children,
+  guest = false,
 }: {
   children: (clientId: string, openSetup: () => void) => ReactNode;
+  guest?: boolean;
 }) {
   const { isDark, toggleTheme } = useTheme();
   const [settings, setSettings] = useState<Settings | null>(null);
@@ -30,6 +33,14 @@ export function SpotifySetup({
     let active = true;
     void (async () => {
       try {
+        if (guest) {
+          const callbackId = guestCallbackClientId();
+          if (callbackId) {
+            setSettings({ id: 'guest', clientId: callbackId });
+            setClientId(callbackId);
+          }
+          return;
+        }
         const client = await getRayfinClient();
         const rows = await client.data.SpotifySettings.select(['id', 'clientId'])
           .first(1).execute();
@@ -48,7 +59,7 @@ export function SpotifySetup({
       }
     })();
     return () => { active = false; };
-  }, [attempt]);
+  }, [attempt, guest]);
 
   async function save(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -60,6 +71,11 @@ export function SpotifySetup({
     setSaving(true);
     setError('');
     try {
+      if (guest) {
+        setSettings({ id: 'guest', clientId: value });
+        setEditing(false);
+        return;
+      }
       const client = await getRayfinClient();
       const session = client.auth.getSession();
       if (!session.isAuthenticated || !session.user) {
@@ -110,10 +126,12 @@ export function SpotifySetup({
                 <>
                   <p className="mt-300 text-300 leading-500 text-muted-foreground">
                     Bring your own Spotify Client ID to search songs and create
-                    playlists in your account. Your setting is saved privately
-                    to your signed-in account. Never enter your client secret.
+                    playlists in your account. {guest
+                      ? 'Guest mode keeps your ID and draft only while this page is open. Refreshing or closing clears them. Connect Spotify before building your draft.'
+                      : 'Your setting is saved privately to your signed-in account.'}
+                    {' '}Never enter your client secret.
                   </p>
-                  <SpotifySetupGuide />
+                  <SpotifySetupGuide guest={guest} />
                   <form onSubmit={save} className="mt-500 space-y-300">
                     <label htmlFor="spotify-client-id" className="block text-200 font-semibold">Spotify Client ID</label>
                     <input
@@ -128,13 +146,14 @@ export function SpotifySetup({
                       className="h-12 w-full rounded-xl border border-input bg-background px-300 text-300 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
                     />
                     <p id="spotify-client-id-help" className="text-200 text-muted-foreground">
-                      The public 32-character ID, not a secret. Changing it
-                      disconnects Spotify but keeps your saved playlist.
+                      The public 32-character ID, not a secret. {guest
+                        ? 'Changing it disconnects Spotify and clears your guest draft.'
+                        : 'Changing it disconnects Spotify but keeps your saved playlist.'}
                     </p>
                     <div className="flex flex-wrap gap-200">
                       <button type="submit" disabled={saving || !clientId.trim()}
                         className="inline-flex min-h-11 items-center justify-center rounded-xl bg-primary px-400 py-200 text-300 font-semibold text-primary-foreground hover:bg-primary/90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring disabled:opacity-50">
-                        {saving ? 'Saving…' : 'Save and continue'}
+                        {saving ? 'Saving…' : guest ? 'Continue as guest' : 'Save and continue'}
                       </button>
                       {settings ? (
                         <button type="button" disabled={saving} onClick={() => { setEditing(false); setError(''); }}

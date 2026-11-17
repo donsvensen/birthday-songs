@@ -108,6 +108,15 @@ describe('protected app content with standalone sign-in', () => {
     expect(auth.signIn).not.toHaveBeenCalled();
   });
 
+  it('lets a signed-out visitor enter guest setup without private data access', async () => {
+    const auth = service();
+    render(<Root rayfinAuthService={auth} />);
+    fireEvent.click(await screen.findByRole('button', { name: 'Continue as guest' }));
+    expect(await screen.findByLabelText('Spotify Client ID')).toBeVisible();
+    expect(dataAccess).not.toHaveBeenCalled();
+    expect(auth.signIn).not.toHaveBeenCalled();
+  });
+
   it('does not treat an anonymous SDK session as an authenticated app user', async () => {
     const auth = service();
     auth.resolveSession = vi.fn(async () => ({

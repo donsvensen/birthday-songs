@@ -28,19 +28,19 @@ export function PublicWelcome({ children }: { children: ReactNode }) {
             birthday playlist to send to your Spotify account.
           </p>
           <p className="mt-300 text-200">
-            Explore the setup guide without signing in. Microsoft sign-in protects
-            your saved Client ID and playlists; Spotify sign-in authorizes music search and export.
+            Continue as guest for a temporary draft, or sign in with Microsoft to
+            save your Client ID and playlists privately. Spotify sign-in authorizes music search and export.
           </p>
         </section>
         <div className="grid items-start gap-500 lg:grid-cols-2">
           <section aria-labelledby="public-setup-heading" className="rounded-3xl border border-border bg-card p-500 sm:p-600">
             <h2 id="public-setup-heading" className="font-heading text-500 font-bold">Prepare your Spotify app</h2>
             <p className="mt-200 text-200 text-muted-foreground">
-              You can follow these steps now. No Client ID is read or saved until you sign in.
+              Follow these steps, then enter your Client ID in guest mode or sign in to save it privately.
             </p>
             <SpotifySetupGuide />
           </section>
-          <section aria-label="Sign in to your private playlist">
+          <section aria-label="Choose guest mode or private saved playlists">
             {children}
           </section>
         </div>

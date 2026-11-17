@@ -8,19 +8,21 @@
 import { fireEvent, render } from '@testing-library/react';
 import { afterEach, beforeEach, describe, it, expect, vi } from 'vitest';
 
-const { execute, createSong, deleteSong, deletePlaylist, searchSpotifyTracks, exchangeSpotifyCode } = vi.hoisted(() => ({
+const { execute, createSong, deleteSong, deletePlaylist, searchSpotifyTracks, exchangeSpotifyCode, createSpotifyPlaylist } = vi.hoisted(() => ({
   execute: vi.fn(),
   createSong: vi.fn(),
   deleteSong: vi.fn(),
   deletePlaylist: vi.fn(),
   searchSpotifyTracks: vi.fn(),
   exchangeSpotifyCode: vi.fn(),
+  createSpotifyPlaylist: vi.fn(),
 }));
 
 vi.mock('@/lib/spotify', async (importOriginal) => ({
   ...await importOriginal<typeof import('@/lib/spotify')>(),
   searchSpotifyTracks,
   exchangeSpotifyCode,
+  createSpotifyPlaylist,
 }));
 
 vi.mock('@/lib/rayfin-client', () => {
@@ -64,6 +66,7 @@ describe('App', () => {
     deletePlaylist.mockReset().mockResolvedValue(undefined);
     searchSpotifyTracks.mockReset();
     exchangeSpotifyCode.mockReset();
+    createSpotifyPlaylist.mockReset();
   });
 
   afterEach(() => {
@@ -84,6 +87,48 @@ describe('App', () => {
     const { findByText, getByLabelText } = render(<App />);
     expect(await findByText('Make a mix worth celebrating.')).toBeInTheDocument();
     expect(getByLabelText('Search songs or artists on Spotify')).toBeInTheDocument();
+  });
+
+  it('builds, exports, and resets a guest draft without accessing private data', async () => {
+    sessionStorage.setItem('birthday-songs.spotify-oauth-state', JSON.stringify({
+      guest: true, clientId: '0123456789abcdef0123456789abcdef',
+      ownerId: 'guest', state: 'guest-state', codeVerifier: 'verifier',
+      expiresAt: Date.now() + 60_000,
+    }));
+    window.history.replaceState({}, '', '/?code=guest-code&state=guest-state');
+    exchangeSpotifyCode.mockResolvedValue('guest-token');
+    searchSpotifyTracks.mockResolvedValue([{
+      id: 'guesttrack', uri: 'spotify:track:guesttrack',
+      title: 'Guest song', artist: 'Artist', album: '', coverUrl: '',
+    }]);
+    createSpotifyPlaylist.mockResolvedValue('https://open.spotify.com/playlist/exported');
+    const view = render(<App guest />);
+    await view.findByText('Spotify connected');
+    fireEvent.change(view.getByLabelText('Playlist name'), { target: { value: 'Guest mix' } });
+    fireEvent.click(view.getByRole('button', { name: 'Create my playlist' }));
+    fireEvent.change(view.getByLabelText('Search songs or artists on Spotify'), {
+      target: { value: 'Guest song' },
+    });
+    fireEvent.click(view.getByRole('button', { name: 'Search' }));
+    fireEvent.click(await view.findByRole('button', { name: 'Add Guest song to your playlist' }));
+    expect(view.getByText('1 / 100 songs')).toBeVisible();
+    fireEvent.click(view.getByRole('button', { name: 'Create in Spotify' }));
+    await view.findByText('Your private Spotify playlist is ready.');
+    expect(createSpotifyPlaylist).toHaveBeenCalledWith(
+      'guest-token', 'Guest mix', ['spotify:track:guesttrack'],
+    );
+    fireEvent.click(view.getByRole('button', { name: 'Remove Guest song' }));
+    expect(view.getByText('0 / 100 songs')).toBeVisible();
+    fireEvent.click(view.getByRole('button', { name: 'Start over' }));
+    fireEvent.click(view.getByRole('button', { name: 'Yes, start over' }));
+    await view.findByLabelText('Playlist name');
+    expect(execute).not.toHaveBeenCalled();
+    expect(createSong).not.toHaveBeenCalled();
+    expect(deleteSong).not.toHaveBeenCalled();
+    expect(deletePlaylist).not.toHaveBeenCalled();
+    view.unmount();
+    const reload = render(<App guest />);
+    expect(await reload.findByLabelText('Spotify Client ID')).toBeVisible();
   });
 
   it.each([

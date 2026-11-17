@@ -15,10 +15,11 @@ import {
   Trash2,
   X,
 } from 'lucide-react';
-import { useEffect, useRef, useState, type FormEvent } from 'react';
+import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react';
 
 import { useTheme } from './hooks/theme.context';
 import { SpotifySetup } from './SpotifySetup';
+import { SPOTIFY_STATE_KEY } from './lib/guest-oauth';
 import { getRayfinClient, type AppClient } from './lib/rayfin-client';
 import {
   createSpotifyAuthorization,
@@ -52,9 +53,10 @@ interface SpotifyOAuthState {
   expiresAt: number;
   clientId: string;
   ownerId: string;
+  guest?: boolean;
 }
 
-const STATE_KEY = 'birthday-songs.spotify-oauth-state';
+const STATE_KEY = SPOTIFY_STATE_KEY;
 
 function ownerId(client: AppClient): string {
   const session = client.auth.getSession();
@@ -68,9 +70,10 @@ function errorMessage(error: unknown, fallback: string): string {
   return error instanceof Error && error.message ? error.message : fallback;
 }
 
-function PlaylistBuilder({ clientId, openSetup }: {
+function PlaylistBuilder({ clientId, openSetup, guest = false }: {
   clientId: string;
   openSetup: () => void;
+  guest?: boolean;
 }) {
   const { isDark, toggleTheme } = useTheme();
   const [playlist, setPlaylist] = useState<Playlist | null>(null);
@@ -98,7 +101,8 @@ function PlaylistBuilder({ clientId, openSetup }: {
     if (listeningTrack) playerPanel.current?.focus();
   }, [listeningTrack]);
 
-  async function readPlaylist() {
+  const readPlaylist = useCallback(async () => {
+    if (guest) return { playlist: null, songs: [] as PlaylistSong[] };
     const client = await getRayfinClient();
     const playlists = await client.data.BirthdayPlaylist.select([
         'id',
@@ -127,7 +131,7 @@ function PlaylistBuilder({ clientId, openSetup }: {
       playlist: { id: saved.id, title: saved.title },
       songs: savedSongs,
     };
-  }
+  }, [guest]);
 
   async function loadPlaylist() {
     setLoading(true);
@@ -172,7 +176,7 @@ function PlaylistBuilder({ clientId, openSetup }: {
     return () => {
       active = false;
     };
-  }, []);
+  }, [readPlaylist]);
 
   useEffect(() => {
     if (loading || callbackHandled.current) return;
@@ -210,6 +214,7 @@ function PlaylistBuilder({ clientId, openSetup }: {
               expiresAt: parsed.expiresAt,
               clientId: parsed.clientId,
               ownerId: parsed.ownerId,
+              guest: 'guest' in parsed && parsed.guest === true,
             };
           }
         }
@@ -231,6 +236,7 @@ function PlaylistBuilder({ clientId, openSetup }: {
         !returnedState ||
         returnedState !== expectedState.state ||
         expectedState.clientId !== clientId ||
+        Boolean(expectedState.guest) !== guest ||
         expectedState.expiresAt < Date.now()
       ) {
         setExportMessage(
@@ -250,8 +256,7 @@ function PlaylistBuilder({ clientId, openSetup }: {
       setConnecting(true);
       setExportMessage('');
       try {
-        const client = await getRayfinClient();
-        if (ownerId(client) !== expectedState.ownerId) {
+        if (!guest && ownerId(await getRayfinClient()) !== expectedState.ownerId) {
           throw new Error('The signed-in account changed. Connect Spotify again.');
         }
         const token = await exchangeSpotifyCode(
@@ -270,12 +275,18 @@ function PlaylistBuilder({ clientId, openSetup }: {
         setConnecting(false);
       }
     })();
-  }, [loading, clientId]);
+  }, [loading, clientId, guest]);
 
   async function createPlaylist(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const title = playlistTitle.trim();
     if (!title || title.length > 100) return;
+    if (guest) {
+      setPlaylist({ id: crypto.randomUUID(), title });
+      setSongs([]);
+      setPlaylistTitle('');
+      return;
+    }
 
     setSaving(true);
     setPageError('');
@@ -333,6 +344,14 @@ function PlaylistBuilder({ clientId, openSetup }: {
   async function addTrack(track: SpotifyTrack) {
     if (!playlist || songs.length >= 100) return;
     if (songs.some((song) => song.spotifyUri === track.uri)) return;
+    if (guest) {
+      setSongs((current) => [...current, {
+        id: crypto.randomUUID(), playlist_id: playlist.id,
+        spotifyUri: track.uri, title: track.title, artist: track.artist,
+        album: track.album, coverUrl: track.coverUrl, addedAt: new Date(),
+      }]);
+      return;
+    }
 
     setSaving(true);
     setPageError('');
@@ -359,6 +378,10 @@ function PlaylistBuilder({ clientId, openSetup }: {
   }
 
   async function removeTrack(song: PlaylistSong) {
+    if (guest) {
+      setSongs((current) => current.filter((item) => item.id !== song.id));
+      return;
+    }
     setSaving(true);
     setPageError('');
     try {
@@ -379,12 +402,15 @@ function PlaylistBuilder({ clientId, openSetup }: {
     setSaving(true);
     setPageError('');
     try {
-      const client = await getRayfinClient();
-      for (const song of songs) {
-        await client.data.PlaylistSong.delete({ id: song.id });
-        setSongs((current) => current.filter((item) => item.id !== song.id));
+      if (!guest) {
+        const client = await getRayfinClient();
+        for (const song of songs) {
+          await client.data.PlaylistSong.delete({ id: song.id });
+          setSongs((current) => current.filter((item) => item.id !== song.id));
+        }
+        await client.data.BirthdayPlaylist.delete({ id: playlist.id });
       }
-      await client.data.BirthdayPlaylist.delete({ id: playlist.id });
+      setSongs([]);
       setPlaylist(null);
       setPlaylistTitle('');
       setListeningTrack(null);
@@ -405,7 +431,13 @@ function PlaylistBuilder({ clientId, openSetup }: {
     setConnecting(true);
     setExportMessage('');
     try {
-      const client = await getRayfinClient();
+      if (guest && songs.length > 0 && !window.confirm(
+        'Reconnecting Spotify reloads this page and clears your guest draft. Continue?',
+      )) {
+        setConnecting(false);
+        return;
+      }
+      const currentOwner = guest ? 'guest' : ownerId(await getRayfinClient());
       const authorization = await createSpotifyAuthorization(
         clientId,
         getSpotifyRedirectUri(window.location.origin),
@@ -417,7 +449,8 @@ function PlaylistBuilder({ clientId, openSetup }: {
           codeVerifier: authorization.codeVerifier,
           expiresAt: Date.now() + 10 * 60_000,
           clientId,
-          ownerId: ownerId(client),
+          ownerId: currentOwner,
+          guest,
         } satisfies SpotifyOAuthState),
       );
       window.location.assign(authorization.url);
@@ -518,6 +551,13 @@ function PlaylistBuilder({ clientId, openSetup }: {
         </header>
 
         <main>
+          {guest ? (
+            <p role="status" className="mb-400 rounded-xl border border-border bg-secondary p-300 text-200">
+              Guest mode: your Client ID and draft are temporary. Refreshing,
+              closing, changing Client ID, or reconnecting Spotify clears them.
+              Playlists created in Spotify remain there.
+            </p>
+          ) : null}
           <section className="relative mb-700 overflow-hidden rounded-4xl bg-primary px-500 py-700 text-primary-foreground shadow-8 sm:px-800 sm:py-800">
             <div
               className="pointer-events-none absolute -right-300 -top-500 size-56 rounded-full border-4 border-primary-foreground/10"
@@ -541,7 +581,7 @@ function PlaylistBuilder({ clientId, openSetup }: {
               </p>
               <div className="mt-500 inline-flex items-center gap-200 rounded-full bg-primary-foreground/15 px-300 py-200 text-200 font-medium">
                 <CircleCheck className="icon-size-200" aria-hidden="true" />
-                Your in-app playlist is private to you
+                {guest ? 'Temporary guest draft — not saved in this app' : 'Your in-app playlist is private to you'}
               </div>
             </div>
             <Sparkles
@@ -881,7 +921,7 @@ function PlaylistBuilder({ clientId, openSetup }: {
                 <>
                   <div className="mb-300 flex items-center justify-between text-200 text-muted-foreground">
                     <span>{songs.length} / 100 songs</span>
-                    <span>Only you can see this list</span>
+                    <span>{guest ? 'Temporary draft' : 'Only you can see this list'}</span>
                   </div>
                   {songs.length ? (
                     <ul className="max-h-96 divide-y divide-border overflow-y-auto">
@@ -973,8 +1013,9 @@ function PlaylistBuilder({ clientId, openSetup }: {
               ) : (
                 <form onSubmit={createPlaylist} className="space-y-300">
                   <p className="text-300 leading-500 text-muted-foreground">
-                    Give your playlist a name. Your saved songs stay private to
-                    your signed-in account.
+                    {guest
+                      ? 'Give your temporary playlist a name. Export it to Spotify before leaving this page.'
+                      : 'Give your playlist a name. Your saved songs stay private to your signed-in account.'}
                   </p>
                   <label
                     htmlFor="playlist-title"
@@ -992,7 +1033,7 @@ function PlaylistBuilder({ clientId, openSetup }: {
                   />
                   <button
                     type="submit"
-                    disabled={saving || !playlistTitle.trim()}
+                    disabled={saving || !playlistTitle.trim() || (guest && !accessToken)}
                     className="inline-flex h-11 w-full items-center justify-center gap-200 rounded-xl bg-primary px-400 text-300 font-semibold text-primary-foreground transition-colors hover:bg-primary/90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring disabled:cursor-not-allowed disabled:opacity-50"
                   >
                     {saving ? (
@@ -1003,7 +1044,7 @@ function PlaylistBuilder({ clientId, openSetup }: {
                     ) : (
                       <Plus className="icon-size-200" aria-hidden="true" />
                     )}
-                    Create my playlist
+                    {guest && !accessToken ? 'Connect Spotify first' : 'Create my playlist'}
                   </button>
                 </form>
               )}
@@ -1124,11 +1165,11 @@ function PlaylistBuilder({ clientId, openSetup }: {
   );
 }
 
-export default function App() {
+export default function App({ guest = false }: { guest?: boolean }) {
   return (
-    <SpotifySetup>
+    <SpotifySetup guest={guest}>
       {(clientId, openSetup) => (
-        <PlaylistBuilder key={clientId} clientId={clientId} openSetup={openSetup} />
+        <PlaylistBuilder key={clientId} clientId={clientId} openSetup={openSetup} guest={guest} />
       )}
     </SpotifySetup>
   );

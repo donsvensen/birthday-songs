@@ -11,6 +11,20 @@ afterEach(() => {
 });
 
 describe('Spotify API helpers', () => {
+  it('explains development-mode access restrictions when Spotify refuses a user', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+      ok: false,
+      status: 403,
+    }));
+
+    await expect(searchSpotifyTracks('user-token', 'birthday')).rejects.toThrow(
+      'Settings > Users Management',
+    );
+    await expect(createSpotifyPlaylist('user-token', 'Birthday mix', [
+      'spotify:track:trackid',
+    ])).rejects.toThrow('Settings > Users Management');
+  });
+
   it('uses a Spotify-compatible loopback redirect for local preview', () => {
     expect(getSpotifyRedirectUri('http://localhost:5173')).toBe(
       'http://[::1]:5173',

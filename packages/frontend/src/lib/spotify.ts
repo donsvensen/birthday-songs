@@ -109,7 +109,7 @@ function requestFailure(status: number): SpotifyApiError {
   }
   if (status === 403) {
     return new SpotifyApiError(
-      'Spotify did not grant permission to create a private playlist. Connect again and allow the requested access.',
+      'Spotify refused access. If this Spotify app is in Development Mode, its owner must add your Spotify account under Settings > Users Management in the Spotify Developer Dashboard. Otherwise, check the app permissions and reconnect Spotify.',
     );
   }
   if (status === 429) {

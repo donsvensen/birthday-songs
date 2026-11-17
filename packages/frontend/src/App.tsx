@@ -987,21 +987,6 @@ function App() {
             </aside>
           </div>
 
-          <section className="mt-500 rounded-2xl border border-border bg-secondary/70 px-400 py-300 text-200 leading-300 text-muted-foreground">
-            <p>
-              <span className="font-semibold text-foreground">
-                Spotify setup:
-              </span>{' '}
-              add this redirect address to your Spotify developer app:{' '}
-              <code className="break-all rounded bg-background px-100 py-100 text-foreground">
-                {getSpotifyRedirectUri(window.location.origin)}
-              </code>
-              . Spotify requires HTTPS for hosted apps; for local preview it
-              permits HTTP on the IPv6 loopback address <code>[::1]</code>, but not
-              <code> localhost</code>. Your Spotify Client ID is public; this
-              app never needs your client secret.
-            </p>
-          </section>
         </main>
       </div>
     </div>

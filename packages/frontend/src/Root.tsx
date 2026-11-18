@@ -8,6 +8,7 @@
 import { ErrorBoundary } from 'react-error-boundary';
 
 import App from './App.tsx';
+import { DemoVideo } from './DemoVideo';
 import { ErrorFallback } from './ErrorFallback';
 import { AuthGate } from './components/auth-gate.component';
 import { ThemeContext } from './hooks/theme.context';
@@ -25,6 +26,7 @@ export function Root({
   return (
     <ThemeContext.Provider value={{ isDark, toggleTheme }}>
       <ErrorBoundary FallbackComponent={ErrorFallback}>
+        <DemoVideo />
         <AuthProvider rayfinAuthService={rayfinAuthService}>
           <AuthGate>
             <App />

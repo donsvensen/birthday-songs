@@ -2,6 +2,10 @@
 
 ## Birthday mix: personal Spotify setup
 
+The **Watch demo** control at the top opens the bundled walkthrough, available
+without sign-in. Its MP4 is served from `packages/frontend/public/birthday-demo.mp4`
+and included in the frontend build. Closing the demo stops playback.
+
 **Guest mode:** choose **Continue as guest** to enter a Client ID and use Spotify
 without Microsoft sign-in. Guest settings and playlist drafts live only in React
 state, never the database or browser storage. Reloading, leaving, changing Client
